@@ -1,0 +1,67 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>State Emissions Explorer</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="icon" href="data:,">
+
+  <style>
+    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
+    .layout { display: grid; grid-template-columns: 1.1fr 0.9fr; height: 100%; }
+    #map { height: 100%; }
+    .panel { padding: 12px; overflow: auto; border-left: 1px solid #ddd; }
+    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
+    label { font-size: 14px; color: #222; }
+    select { padding: 6px 8px; }
+    .title { font-weight: 650; margin: 0 0 8px; }
+    canvas { max-width: 100%; }
+    .hint { color: #555; font-size: 13px; margin: 6px 0 10px; }
+    a { color: inherit; }
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div id="map"></div>
+
+    <div class="panel">
+      <h2 class="title">State emissions</h2>
+      <div class="hint">
+        Click a state to see sector breakdown and timeseries.
+        (Map is colored by <code>Total_posterior</code> for the selected year.)
+      </div>
+
+      <div class="row">
+        <label for="yearSelect">Year</label>
+        <select id="yearSelect"></select>
+
+        <label for="sectorSelect">Sector</label>
+        <select id="sectorSelect"></select>
+      </div>
+
+      <div class="row">
+        <div><strong>Selected state:</strong> <span id="selectedState">(none)</span></div>
+      </div>
+
+      <h3 class="title" style="font-size:16px;">Sector breakdown (posterior)</h3>
+      <canvas id="barChart" height="160"></canvas>
+
+      <h3 class="title" style="font-size:16px; margin-top:14px;">Timeseries (posterior)</h3>
+      <canvas id="lineChart" height="160"></canvas>
+
+      <div class="hint" style="margin-top:12px;">
+        <a href="index.html">← Back to map</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- libs -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <script src="states.js"></script>
+</body>
+</html>
