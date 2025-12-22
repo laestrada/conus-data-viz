@@ -40,6 +40,61 @@ let sectorNames = []; // derived from CSV columns, like ["ONG","Waste",...]
 let barChart = null;
 let lineChart = null;
 
+// Draw min/max error bars for bar charts
+const barErrorBarsPlugin = {
+  id: "barErrorBars",
+  afterDatasetsDraw(chart, args, pluginOptions) {
+    const { ctx } = chart;
+
+    // we assume dataset 0 is the bar dataset
+    const meta = chart.getDatasetMeta(0);
+    if (!meta || !meta.data) return;
+
+    const ds = chart.data.datasets[0];
+    const mins = ds._errMin || [];
+    const maxs = ds._errMax || [];
+    if (!mins.length || !maxs.length) return;
+
+    ctx.save();
+    ctx.lineWidth = 1;
+
+    meta.data.forEach((barElem, i) => {
+      const yMin = mins[i];
+      const yMax = maxs[i];
+      if (yMin == null || yMax == null || Number.isNaN(yMin) || Number.isNaN(yMax)) return;
+
+      // pixel positions
+      const x = barElem.x;
+      const yTop = chart.scales.y.getPixelForValue(yMax);
+      const yBot = chart.scales.y.getPixelForValue(yMin);
+
+      // whisker cap width (pixels)
+      const cap = 8;
+
+      // vertical line
+      ctx.beginPath();
+      ctx.moveTo(x, yTop);
+      ctx.lineTo(x, yBot);
+      ctx.stroke();
+
+      // top cap
+      ctx.beginPath();
+      ctx.moveTo(x - cap, yTop);
+      ctx.lineTo(x + cap, yTop);
+      ctx.stroke();
+
+      // bottom cap
+      ctx.beginPath();
+      ctx.moveTo(x - cap, yBot);
+      ctx.lineTo(x + cap, yBot);
+      ctx.stroke();
+    });
+
+    ctx.restore();
+  }
+};
+
+
 function parseNumber(x) {
   const v = Number(x);
   return Number.isFinite(v) ? v : null;
@@ -147,32 +202,38 @@ function initSelects() {
 
 function buildBarData(year, state) {
   const row = dataByYear?.[year]?.[state];
-  if (!row) return { labels: [], values: [] };
+  if (!row) return { labels: [], values: [], mins: [], maxs: [] };
 
-  const labels = [];
-  const values = [];
-  
-  for (const s of sectorNames) {
-    const v = parseNumber(row[`${s}${SCENARIO_SUFFIX}`]);
-    if (v == null || v === 0) continue;
-    labels.push(s);
-    values.push(v);
-  }
+  const labels = sectorNames;
 
-//   const labels = sectorNames;
-//   const values = labels.map(s => parseNumber(row[`${s}${SCENARIO_SUFFIX}`]) ?? 0);
-  return { labels, values };
+  const values = labels.map(s => parseNumber(row[`${s}${SCENARIO_SUFFIX}`]));
+  const mins = labels.map(s => parseNumber(row[`${s}_min`]));
+  const maxs = labels.map(s => parseNumber(row[`${s}_max`]));
 
+  return { labels, values, mins, maxs };
 }
 
 function buildLineData(state, sector) {
   const labels = YEARS.map(String);
+
   const values = YEARS.map(y => {
     const row = dataByYear?.[y]?.[state];
     return row ? parseNumber(row[`${sector}${SCENARIO_SUFFIX}`]) : null;
   });
-  return { labels, values };
+
+  const mins = YEARS.map(y => {
+    const row = dataByYear?.[y]?.[state];
+    return row ? parseNumber(row[`${sector}_min`]) : null;
+  });
+
+  const maxs = YEARS.map(y => {
+    const row = dataByYear?.[y]?.[state];
+    return row ? parseNumber(row[`${sector}_max`]) : null;
+  });
+
+  return { labels, values, mins, maxs };
 }
+
 
 function ensureChartDatasets() {
   if (!barChart) return;
@@ -213,28 +274,36 @@ function updateCharts() {
   if (!selectedState) {
     barChart.data.labels = [];
     barChart.data.datasets[0].data = [];
-    barChart.options.plugins.title.text = "";
-
+    barChart.data.datasets[0]._errMin = [];
+    barChart.data.datasets[0]._errMax = [];
+    barChart.update();
+    
     lineChart.data.labels = [];
     lineChart.data.datasets[0].data = [];
-    lineChart.options.plugins.title.text = "";
-
-    barChart.update();
+    lineChart.data.datasets[1].data = [];
+    lineChart.data.datasets[2].data = [];
     lineChart.update();
     return;
   }
 
   // Bar chart (sector breakdown for selected year)
   const bar = buildBarData(year, selectedState);
-  barChart.data.labels = bar.labels.map(s => SECTOR_LABELS[s] ?? s);
+  barChart.data.labels = bar.labels;
   barChart.data.datasets[0].data = bar.values;
+  barChart.data.datasets[0]._errMin = bar.mins;
+  barChart.data.datasets[0]._errMax = bar.maxs;
   barChart.options.plugins.title.text = `${selectedState} – ${year}`;
   barChart.update();
 
-  // Line chart (timeseries for selected sector)
+  // Line
   const line = buildLineData(selectedState, sector);
   lineChart.data.labels = line.labels;
-  lineChart.data.datasets[0].data = line.values;
+  
+  // datasets: [min, max(fill), central]
+  lineChart.data.datasets[0].data = line.mins;
+  lineChart.data.datasets[1].data = line.maxs;
+  lineChart.data.datasets[2].data = line.values;
+  
   lineChart.options.plugins.title.text = `${selectedState} – ${sector}${SCENARIO_SUFFIX}`;
   lineChart.update();
 }
@@ -247,7 +316,9 @@ function initCharts() {
       labels: [],
       datasets: [{
         label: `Sector${SCENARIO_SUFFIX}`,
-        data: []
+        data: [],
+        _errMin: [],
+        _errMax: []
       }]
     },
     options: {
@@ -259,20 +330,41 @@ function initCharts() {
       scales: {
         y: { beginAtZero: true }
       }
-    }
+    },
+    plugins: [barErrorBarsPlugin]
   });
+
 
   const lineCtx = document.getElementById("lineChart");
   lineChart = new Chart(lineCtx, {
     type: "line",
     data: {
       labels: [],
-      datasets: [{
-        label: `Value${SCENARIO_SUFFIX}`,
-        data: [],
-        tension: 0.2,
-        pointRadius: 2
-      }]
+      datasets: [
+        // min (invisible line, used for fill target)
+        {
+          label: "min",
+          data: [],
+          pointRadius: 0,
+          borderWidth: 0
+        },
+        // max (fills down to previous dataset = min)
+        {
+          label: "max",
+          data: [],
+          pointRadius: 0,
+          borderWidth: 0,
+          fill: "-1",
+          backgroundColor: "rgba(0,0,0,0.12)" // shaded uncertainty band
+        },
+        // central posterior line
+        {
+          label: `Value${SCENARIO_SUFFIX}`,
+          data: [],
+          tension: 0.2,
+          pointRadius: 2
+        }
+      ]
     },
     options: {
       responsive: true,
