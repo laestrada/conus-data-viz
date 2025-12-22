@@ -100,6 +100,21 @@ function parseNumber(x) {
   return Number.isFinite(v) ? v : null;
 }
 
+function getNiceLimits(minVal, maxVal) {
+  // simple padding so whiskers don't touch the border
+  if (!Number.isFinite(minVal) || !Number.isFinite(maxVal)) return { min: undefined, max: undefined };
+  if (minVal === maxVal) return { min: 0, max: maxVal * 1.1 + 1e-9 };
+
+  const pad = 0.06 * (maxVal - minVal); // 6% padding
+  let lo = minVal - pad;
+  let hi = maxVal + pad;
+
+  // if emissions can't be negative, clamp at 0
+  lo = Math.max(0, lo);
+
+  return { min: lo, max: hi };
+}
+
 function deriveSectorsFromRow(row) {
   return Object.keys(row)
     .filter(k => k.endsWith(SCENARIO_SUFFIX))
@@ -288,10 +303,22 @@ function updateCharts() {
 
   // Bar chart (sector breakdown for selected year)
   const bar = buildBarData(year, selectedState);
-  barChart.data.labels = bar.labels;
+  barChart.data.labels = bar.labels.map(s => SECTOR_LABELS[s] ?? s);
   barChart.data.datasets[0].data = bar.values;
   barChart.data.datasets[0]._errMin = bar.mins;
   barChart.data.datasets[0]._errMax = bar.maxs;
+  const barFiniteMins = bar.mins.filter(v => Number.isFinite(v));
+  const barFiniteMaxs = bar.maxs.filter(v => Number.isFinite(v));
+  
+  const overallMin = barFiniteMins.length ? Math.min(...barFiniteMins) : 0;
+  const overallMax = barFiniteMaxs.length ? Math.max(...barFiniteMaxs) : Math.max(...bar.values.filter(v => Number.isFinite(v)));
+  
+  const lim = getNiceLimits(overallMin, overallMax);
+  
+  // tell Chart.js to respect these limits
+  barChart.options.scales.y.min = lim.min;
+  barChart.options.scales.y.max = lim.max;
+  
   barChart.options.plugins.title.text = `${selectedState} – ${year}`;
   barChart.update();
 
@@ -304,7 +331,8 @@ function updateCharts() {
   lineChart.data.datasets[1].data = line.maxs;
   lineChart.data.datasets[2].data = line.values;
   
-  lineChart.options.plugins.title.text = `${selectedState} – ${sector}${SCENARIO_SUFFIX}`;
+  const prettySector = SECTOR_LABELS[sector] ?? sector;
+  lineChart.options.plugins.title.text = `${selectedState} – ${prettySector}${SCENARIO_SUFFIX}`;
   lineChart.update();
 }
 
