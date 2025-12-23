@@ -27,7 +27,33 @@ const SECTOR_LABELS = {
   Total_ExclSoilAbs: "Total"
 };
 
+// GeoTIFFs you already made for the gridded map
+// Make sure these paths match your site layout.
+const GRID_MANIFEST_PATH = "data/manifest.json"; // the same manifest used on index page
+
+// Which gridded variable to show on the state page map
+const GRID_VAR = "EmisCH4_Total";
+
+// CSV sector -> GeoTIFF variable key in data/manifest.json
+const GRID_VAR_BY_SECTOR = {
+  Total: "EmisCH4_Total",
+  Landfills: "EmisCH4_Landfills",
+  Wastewater: "EmisCH4_Wastewater",
+  Livestock: "EmisCH4_Livestock",
+  Coal: "EmisCH4_Coal",
+  ONG: "EmisCH4_ONG",
+  Rice: "EmisCH4_Rice",
+  BiomassBurning: "EmisCH4_BiomassBurning",
+  Wetlands: "EmisCH4_Wetlands",
+  Coal: "EmisCH4_Coal",
+  Reservoirs: "EmisCH4_Reservoirs",
+};
+
 // ------------------------------------------------------------
+
+let gridManifest = null;
+let gridLayer = null;
+let gridGeoraster = null;
 
 let map;
 let statesLayer = null;
@@ -52,6 +78,50 @@ function setUnits(newUnit) {
 
 function scaleVal(v) {
   return (v == null || !Number.isFinite(v)) ? null : v * unitFactor;
+}
+
+async function setGridLayer(year, sector) {
+  if (!gridManifest) {
+    gridManifest = await (await fetch(GRID_MANIFEST_PATH)).json();
+  }
+
+  // remove existing
+  if (gridLayer) {
+    map.removeLayer(gridLayer);
+    gridLayer = null;
+    gridGeoraster = null;
+  }
+
+  const gridVar = GRID_VAR_BY_SECTOR[sector] ?? "EmisCH4_Total";
+  const entry = gridManifest?.data?.[gridVar]?.[String(year)];
+  if (!entry) {
+    console.warn("No GeoTIFF entry for", { gridVar, year, sector, entry });
+    return;
+  }
+
+  const resp = await fetch(entry.tif);
+  const arrayBuffer = await resp.arrayBuffer();
+  const georaster = await parseGeoraster(arrayBuffer);
+  gridGeoraster = georaster;
+
+  const min = entry.min;
+  const max = entry.max;
+  const denom = (max - min) || 1;
+
+  gridLayer = new GeoRasterLayer({
+    georaster,
+    opacity: 0.6,
+    resolution: 256,
+    pixelValuesToColorFn: (vals) => {
+      const v = vals?.[0];
+      if (v == null || Number.isNaN(v)) return null;
+      const t = Math.max(0, Math.min(1, (v - min) / denom));
+      return chroma.scale("viridis")(t).hex();
+    }
+  });
+
+  gridLayer.addTo(map);
+  if (statesLayer) statesLayer.bringToFront();
 }
 
 // Draw min/max error bars for bar charts
@@ -461,17 +531,56 @@ async function initMap() {
 async function main() {
   await loadAllCSVs();
   initSelects();
+
+  const yearSelect = document.getElementById("yearSelect");
+  const sectorSelect = document.getElementById("sectorSelect");
+  const gridToggle = document.getElementById("gridToggle");
+
   const unitSelect = document.getElementById("unitSelect");
   setUnits(unitSelect.value);
-
   unitSelect.addEventListener("change", () => {
     setUnits(unitSelect.value);
-    updateCharts();     // re-render charts in new units
+    updateCharts();
   });
+
   initCharts();
+
+  // ✅ Create the map BEFORE adding raster overlays
   await initMap();
   recolorStates();
   updateCharts();
+
+  async function refreshGridIfOn() {
+    if (!gridToggle.checked) return;
+    await setGridLayer(Number(yearSelect.value), sectorSelect.value);
+  }
+
+  // ✅ initial grid draw
+  await refreshGridIfOn();
+
+  // ✅ toggle
+  gridToggle.addEventListener("change", async () => {
+    if (gridToggle.checked) {
+      await refreshGridIfOn();
+    } else {
+      if (gridLayer) map.removeLayer(gridLayer);
+      gridLayer = null;
+      gridGeoraster = null;
+    }
+  });
+
+  // ✅ year changes
+  yearSelect.addEventListener("change", async () => {
+    recolorStates();
+    updateCharts();
+    await refreshGridIfOn();
+  });
+
+  // ✅ sector changes
+  sectorSelect.addEventListener("change", async () => {
+    updateCharts();
+    await refreshGridIfOn();
+  });
 }
 
 main();
