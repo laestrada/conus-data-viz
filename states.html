@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8" />
   <title>State Emissions Explorer</title>
@@ -9,30 +10,81 @@
   <link rel="icon" href="data:,">
 
   <style>
-    html, body { height: 100%; margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; }
-    .layout { display: grid; grid-template-columns: 1.1fr 0.9fr; height: 100%; }
-    #map { height: 100%; }
-    .panel { padding: 12px; overflow: auto; border-left: 1px solid #ddd; }
-    .row { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 10px; }
-    label { font-size: 14px; color: #222; }
-    select { padding: 6px 8px; }
-    .title { font-weight: 650; margin: 0 0 8px; }
-    canvas { max-width: 100%; }
-    .hint { color: #555; font-size: 13px; margin: 6px 0 10px; }
-    a { color: inherit; }
+    html,
+    body {
+      height: 100%;
+      margin: 0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      height: 100%;
+    }
+
+    #map {
+      height: 100%;
+    }
+
+    .panel {
+      padding: 12px;
+      overflow: auto;
+      border-left: 1px solid #ddd;
+    }
+
+    .row {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
+    }
+
+    label {
+      font-size: 14px;
+      color: #222;
+    }
+
+    select {
+      padding: 6px 8px;
+    }
+
+    .title {
+      font-weight: 650;
+      margin: 0 0 8px;
+    }
+
+    canvas {
+      max-width: 100%;
+    }
+
+    .hint {
+      color: #555;
+      font-size: 13px;
+      margin: 6px 0 10px;
+    }
+
+    a {
+      color: inherit;
+    }
   </style>
 </head>
+
 <body>
   <div class="layout">
     <div id="map"></div>
 
     <div class="panel">
-      <h2 class="title">State emissions</h2>
+      <h2 class="title">U.S. State CH<sub>4</sub> emissions</h2>
       <div class="hint">
         Click a state to see sector breakdown and timeseries.
-        (Map is colored by <code>Total_posterior</code> for the selected year.)
       </div>
-
+      <label for="unitSelect">Units</label>
+      <select id="unitSelect">
+        <option value="Tg">Tg/yr</option>
+        <option value="Gg">Gg/yr</option>
+      </select>
       <div class="row">
         <label for="yearSelect">Year</label>
         <select id="yearSelect"></select>
@@ -62,6 +114,12 @@
   <script src="https://cdn.jsdelivr.net/npm/papaparse@5.4.1/papaparse.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 
+  <script src="https://unpkg.com/georaster@1.6.0/dist/georaster.browser.bundle.js"></script>
+  <script
+    src="https://unpkg.com/georaster-layer-for-leaflet@3.10.0/georaster-layer-for-leaflet.browserify.min.js"></script>
+
+
   <script src="states.js"></script>
 </body>
+
 </html>

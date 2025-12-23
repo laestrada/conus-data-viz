@@ -12,19 +12,19 @@ const SCENARIO_SUFFIX = "_posterior";
 // Exclude these sectors everywhere (bar + line + dropdown)
 const EXCLUDED_SECTORS = [
   "Total",        // just in case
-  "OtherAnth",        
-  "Gas",   
-  "Oil",   
-  "Lakes",   
-  "Seeps",   
-  "Termites",   
-  "SoilAbsorb",   
+  "OtherAnth",
+  "Gas",
+  "Oil",
+  "Lakes",
+  "Seeps",
+  "Termites",
+  "SoilAbsorb",
 ];
 
 const SECTOR_LABELS = {
   ONG: "Oil/Gas",
   Livestock: "Livestock",
-  Total_ExclSoilAbs: "Total (excl. Soil Absorb)"
+  Total_ExclSoilAbs: "Total"
 };
 
 // ------------------------------------------------------------
@@ -39,6 +39,20 @@ let selectedState = null;
 let sectorNames = []; // derived from CSV columns, like ["ONG","Waste",...]
 let barChart = null;
 let lineChart = null;
+
+let unit = "Tg";                 // default
+let unitFactor = 1;              // Tg -> 1, Gg -> 1000
+let unitLabel = "Tg/yr";
+
+function setUnits(newUnit) {
+  unit = newUnit;
+  unitFactor = (unit === "Gg") ? 1000 : 1;
+  unitLabel = (unit === "Gg") ? "Gg/yr" : "Tg/yr";
+}
+
+function scaleVal(v) {
+  return (v == null || !Number.isFinite(v)) ? null : v * unitFactor;
+}
 
 // Draw min/max error bars for bar charts
 const barErrorBarsPlugin = {
@@ -221,9 +235,9 @@ function buildBarData(year, state) {
 
   const labels = sectorNames;
 
-  const values = labels.map(s => parseNumber(row[`${s}${SCENARIO_SUFFIX}`]));
-  const mins = labels.map(s => parseNumber(row[`${s}_min`]));
-  const maxs = labels.map(s => parseNumber(row[`${s}_max`]));
+  const values = labels.map(s => scaleVal(parseNumber(row[`${s}${SCENARIO_SUFFIX}`])));
+  const mins = labels.map(s => scaleVal(parseNumber(row[`${s}_min`])));
+  const maxs = labels.map(s => scaleVal(parseNumber(row[`${s}_max`])));
 
   return { labels, values, mins, maxs };
 }
@@ -233,21 +247,22 @@ function buildLineData(state, sector) {
 
   const values = YEARS.map(y => {
     const row = dataByYear?.[y]?.[state];
-    return row ? parseNumber(row[`${sector}${SCENARIO_SUFFIX}`]) : null;
+    return row ? scaleVal(parseNumber(row[`${sector}${SCENARIO_SUFFIX}`])) : null;
   });
 
   const mins = YEARS.map(y => {
     const row = dataByYear?.[y]?.[state];
-    return row ? parseNumber(row[`${sector}_min`]) : null;
+    return row ? scaleVal(parseNumber(row[`${sector}_min`])) : null;
   });
 
   const maxs = YEARS.map(y => {
     const row = dataByYear?.[y]?.[state];
-    return row ? parseNumber(row[`${sector}_max`]) : null;
+    return row ? scaleVal(parseNumber(row[`${sector}_max`])) : null;
   });
 
   return { labels, values, mins, maxs };
 }
+
 
 
 function ensureChartDatasets() {
@@ -292,7 +307,7 @@ function updateCharts() {
     barChart.data.datasets[0]._errMin = [];
     barChart.data.datasets[0]._errMax = [];
     barChart.update();
-    
+
     lineChart.data.labels = [];
     lineChart.data.datasets[0].data = [];
     lineChart.data.datasets[1].data = [];
@@ -309,30 +324,33 @@ function updateCharts() {
   barChart.data.datasets[0]._errMax = bar.maxs;
   const barFiniteMins = bar.mins.filter(v => Number.isFinite(v));
   const barFiniteMaxs = bar.maxs.filter(v => Number.isFinite(v));
-  
+
   const overallMin = barFiniteMins.length ? Math.min(...barFiniteMins) : 0;
   const overallMax = barFiniteMaxs.length ? Math.max(...barFiniteMaxs) : Math.max(...bar.values.filter(v => Number.isFinite(v)));
-  
+
   const lim = getNiceLimits(overallMin, overallMax);
-  
+
   // tell Chart.js to respect these limits
   barChart.options.scales.y.min = lim.min;
   barChart.options.scales.y.max = lim.max;
-  
+
+
   barChart.options.plugins.title.text = `${selectedState} – ${year}`;
+  barChart.options.scales.y.title.text = `Emissions (${unitLabel})`;
   barChart.update();
 
   // Line
   const line = buildLineData(selectedState, sector);
   lineChart.data.labels = line.labels;
-  
+
   // datasets: [min, max(fill), central]
   lineChart.data.datasets[0].data = line.mins;
   lineChart.data.datasets[1].data = line.maxs;
   lineChart.data.datasets[2].data = line.values;
-  
+
   const prettySector = SECTOR_LABELS[sector] ?? sector;
   lineChart.options.plugins.title.text = `${selectedState} – ${prettySector}${SCENARIO_SUFFIX}`;
+  lineChart.options.scales.y.title.text = `Emissions (${unitLabel})`;
   lineChart.update();
 }
 
@@ -356,7 +374,10 @@ function initCharts() {
         legend: { display: false }
       },
       scales: {
-        y: { beginAtZero: true }
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: unitLabel }
+        }
       }
     },
     plugins: [barErrorBarsPlugin]
@@ -401,7 +422,10 @@ function initCharts() {
         legend: { display: false }
       },
       scales: {
-        y: { beginAtZero: false }
+        y: {
+          beginAtZero: true,
+          title: { display: true, text: unitLabel }
+        }
       }
     }
   });
@@ -437,6 +461,13 @@ async function initMap() {
 async function main() {
   await loadAllCSVs();
   initSelects();
+  const unitSelect = document.getElementById("unitSelect");
+  setUnits(unitSelect.value);
+
+  unitSelect.addEventListener("change", () => {
+    setUnits(unitSelect.value);
+    updateCharts();     // re-render charts in new units
+  });
   initCharts();
   await initMap();
   recolorStates();
