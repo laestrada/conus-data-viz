@@ -26,37 +26,37 @@
         "tif": "data/tif/EmisCH4_Total_2019.tif",
         "nc": "data/nc/posterior_ens_mean_2019.nc",
         "min": 0.0,
-        "max": 1.0891446855509912e-08
+        "max": 39.20920944213867
       },
       "2020": {
         "tif": "data/tif/EmisCH4_Total_2020.tif",
         "nc": "data/nc/posterior_ens_mean_2020.nc",
         "min": 0.0,
-        "max": 1.1927424381497076e-08
+        "max": 42.93872833251953
       },
       "2021": {
         "tif": "data/tif/EmisCH4_Total_2021.tif",
         "nc": "data/nc/posterior_ens_mean_2021.nc",
         "min": 0.0,
-        "max": 1.1468288541038874e-08
+        "max": 41.28583908081055
       },
       "2022": {
         "tif": "data/tif/EmisCH4_Total_2022.tif",
         "nc": "data/nc/posterior_ens_mean_2022.nc",
         "min": 0.0,
-        "max": 1.1606693384180744e-08
+        "max": 41.784095764160156
       },
       "2023": {
         "tif": "data/tif/EmisCH4_Total_2023.tif",
         "nc": "data/nc/posterior_ens_mean_2023.nc",
         "min": 0.0,
-        "max": 9.086004837399742e-09
+        "max": 32.709617614746094
       },
       "2024": {
         "tif": "data/tif/EmisCH4_Total_2024.tif",
         "nc": "data/nc/posterior_ens_mean_2024.nc",
         "min": 0.0,
-        "max": 1.0571882924637066e-08
+        "max": 38.058780670166016
       }
     },
     "EmisCH4_Oil": {
@@ -64,37 +64,37 @@
         "tif": "data/tif/EmisCH4_Oil_2019.tif",
         "nc": "data/nc/posterior_ens_mean_2019.nc",
         "min": 0.0,
-        "max": 3.4935647708067563e-09
+        "max": 12.57683277130127
       },
       "2020": {
         "tif": "data/tif/EmisCH4_Oil_2020.tif",
         "nc": "data/nc/posterior_ens_mean_2020.nc",
         "min": 0.0,
-        "max": 2.481487237915303e-09
+        "max": 8.933353424072266
       },
       "2021": {
         "tif": "data/tif/EmisCH4_Oil_2021.tif",
         "nc": "data/nc/posterior_ens_mean_2021.nc",
         "min": 0.0,
-        "max": 2.9413220747898094e-09
+        "max": 10.588759422302246
       },
       "2022": {
         "tif": "data/tif/EmisCH4_Oil_2022.tif",
         "nc": "data/nc/posterior_ens_mean_2022.nc",
         "min": 0.0,
-        "max": 2.6611324255298996e-09
+        "max": 9.580077171325684
       },
       "2023": {
         "tif": "data/tif/EmisCH4_Oil_2023.tif",
         "nc": "data/nc/posterior_ens_mean_2023.nc",
         "min": 0.0,
-        "max": 2.5494861777275446e-09
+        "max": 9.178150177001953
       },
       "2024": {
         "tif": "data/tif/EmisCH4_Oil_2024.tif",
         "nc": "data/nc/posterior_ens_mean_2024.nc",
         "min": 0.0,
-        "max": 3.724831332263534e-09
+        "max": 13.409393310546875
       }
     },
     "EmisCH4_Gas": {
@@ -102,37 +102,37 @@
         "tif": "data/tif/EmisCH4_Gas_2019.tif",
         "nc": "data/nc/posterior_ens_mean_2019.nc",
         "min": 0.0,
-        "max": 4.15921030949562e-09
+        "max": 14.97315788269043
       },
       "2020": {
         "tif": "data/tif/EmisCH4_Gas_2020.tif",
         "nc": "data/nc/posterior_ens_mean_2020.nc",
         "min": 0.0,
-        "max": 4.207057813232495e-09
+        "max": 15.145408630371094
       },
       "2021": {
         "tif": "data/tif/EmisCH4_Gas_2021.tif",
         "nc": "data/nc/posterior_ens_mean_2021.nc",
         "min": 0.0,
-        "max": 4.173672074614387e-09
+        "max": 15.025218963623047
       },
       "2022": {
         "tif": "data/tif/EmisCH4_Gas_2022.tif",
         "nc": "data/nc/posterior_ens_mean_2022.nc",
         "min": 0.0,
-        "max": 3.625373334870119e-09
+        "max": 13.05134391784668
       },
       "2023": {
         "tif": "data/tif/EmisCH4_Gas_2023.tif",
         "nc": "data/nc/posterior_ens_mean_2023.nc",
         "min": 0.0,
-        "max": 3.1200748651372123e-09
+        "max": 11.232270240783691
       },
       "2024": {
         "tif": "data/tif/EmisCH4_Gas_2024.tif",
         "nc": "data/nc/posterior_ens_mean_2024.nc",
         "min": 0.0,
-        "max": 3.575249651888157e-09
+        "max": 12.870898246765137
       }
     },
     "EmisCH4_ONG": {
@@ -140,37 +140,37 @@
         "tif": "data/tif/EmisCH4_ONG_2019.tif",
         "nc": "data/nc/posterior_ens_mean_2019.nc",
         "min": 0.0,
-        "max": 6.4218883544242544e-09
+        "max": 23.118799209594727
       },
       "2020": {
         "tif": "data/tif/EmisCH4_ONG_2020.tif",
         "nc": "data/nc/posterior_ens_mean_2020.nc",
         "min": 0.0,
-        "max": 5.815243397933045e-09
+        "max": 20.93487548828125
       },
       "2021": {
         "tif": "data/tif/EmisCH4_ONG_2021.tif",
         "nc": "data/nc/posterior_ens_mean_2021.nc",
         "min": 0.0,
-        "max": 6.89170720491461e-09
+        "max": 24.81014633178711
       },
       "2022": {
         "tif": "data/tif/EmisCH4_ONG_2022.tif",
         "nc": "data/nc/posterior_ens_mean_2022.nc",
         "min": 0.0,
-        "max": 6.2352039087443245e-09
+        "max": 22.446733474731445
       },
       "2023": {
         "tif": "data/tif/EmisCH4_ONG_2023.tif",
         "nc": "data/nc/posterior_ens_mean_2023.nc",
         "min": 0.0,
-        "max": 5.443176576136466e-09
+        "max": 19.595434188842773
       },
       "2024": {
         "tif": "data/tif/EmisCH4_ONG_2024.tif",
         "nc": "data/nc/posterior_ens_mean_2024.nc",
         "min": 0.0,
-        "max": 5.682530002104613e-09
+        "max": 20.457107543945312
       }
     },
     "EmisCH4_Coal": {
@@ -178,37 +178,37 @@
         "tif": "data/tif/EmisCH4_Coal_2019.tif",
         "nc": "data/nc/posterior_ens_mean_2019.nc",
         "min": 0.0,
-        "max": 1.0129889815857496e-08
+        "max": 36.46760559082031
       },
       "2020": {
         "tif": "data/tif/EmisCH4_Coal_2020.tif",
         "nc": "data/nc/posterior_ens_mean_2020.nc",
         "min": 0.0,
-        "max": 1.1052201820405116e-08
+        "max": 39.78792953491211
       },
       "2021": {
         "tif": "data/tif/EmisCH4_Coal_2021.tif",
         "nc": "data/nc/posterior_ens_mean_2021.nc",
         "min": 0.0,
-        "max": 1.0636728831059372e-08
+        "max": 38.29222106933594
       },
       "2022": {
         "tif": "data/tif/EmisCH4_Coal_2022.tif",
         "nc": "data/nc/posterior_ens_mean_2022.nc",
         "min": 0.0,
-        "max": 1.0764991564826687e-08
+        "max": 38.75396728515625
       },
       "2023": {
         "tif": "data/tif/EmisCH4_Coal_2023.tif",
         "nc": "data/nc/posterior_ens_mean_2023.nc",
         "min": 0.0,
-        "max": 8.428491682366257e-09
+        "max": 30.34256935119629
       },
       "2024": {
         "tif": "data/tif/EmisCH4_Coal_2024.tif",
         "nc": "data/nc/posterior_ens_mean_2024.nc",
         "min": 0.0,
-        "max": 9.796489841562561e-09
+        "max": 35.267364501953125
       }
     },
     "EmisCH4_Livestock": {
@@ -216,37 +216,37 @@
         "tif": "data/tif/EmisCH4_Livestock_2019.tif",
         "nc": "data/nc/posterior_ens_mean_2019.nc",
         "min": 0.0,
-        "max": 4.489945304442244e-09
+        "max": 16.163803100585938
       },
       "2020": {
         "tif": "data/tif/EmisCH4_Livestock_2020.tif",
         "nc": "data/nc/posterior_ens_mean_2020.nc",
         "min": 0.0,
-        "max": 4.654979957052774e-09
+        "max": 16.75792694091797
       },
       "2021": {
         "tif": "data/tif/EmisCH4_Livestock_2021.tif",
         "nc": "data/nc/posterior_ens_mean_2021.nc",
         "min": 0.0,
-        "max": 4.181125667912511e-09
+        "max": 15.052051544189453
       },
       "2022": {
         "tif": "data/tif/EmisCH4_Livestock_2022.tif",
         "nc": "data/nc/posterior_ens_mean_2022.nc",
         "min": 0.0,
-        "max": 4.406823350677769e-09
+        "max": 15.864564895629883
       },
       "2023": {
         "tif": "data/tif/EmisCH4_Livestock_2023.tif",
         "nc": "data/nc/posterior_ens_mean_2023.nc",
         "min": 0.0,
-        "max": 4.643124107417407e-09
+        "max": 16.715248107910156
       },
       "2024": {
         "tif": "data/tif/EmisCH4_Livestock_2024.tif",
         "nc": "data/nc/posterior_ens_mean_2024.nc",
         "min": 0.0,
-        "max": 4.060199287891919e-09
+        "max": 14.616717338562012
       }
     },
     "EmisCH4_Wastewater": {
@@ -254,37 +254,37 @@
         "tif": "data/tif/EmisCH4_Wastewater_2019.tif",
         "nc": "data/nc/posterior_ens_mean_2019.nc",
         "min": 0.0,
-        "max": 3.2032396735104385e-09
+        "max": 11.531662940979004
       },
       "2020": {
         "tif": "data/tif/EmisCH4_Wastewater_2020.tif",
         "nc": "data/nc/posterior_ens_mean_2020.nc",
         "min": 0.0,
-        "max": 4.210759296796596e-09
+        "max": 15.158733367919922
       },
       "2021": {
         "tif": "data/tif/EmisCH4_Wastewater_2021.tif",
         "nc": "data/nc/posterior_ens_mean_2021.nc",
         "min": 0.0,
-        "max": 3.2081706180520086e-09
+        "max": 11.54941463470459
       },
       "2022": {
         "tif": "data/tif/EmisCH4_Wastewater_2022.tif",
         "nc": "data/nc/posterior_ens_mean_2022.nc",
         "min": 0.0,
-        "max": 2.894381845308658e-09
+        "max": 10.419775009155273
       },
       "2023": {
         "tif": "data/tif/EmisCH4_Wastewater_2023.tif",
         "nc": "data/nc/posterior_ens_mean_2023.nc",
         "min": 0.0,
-        "max": 1.7086986270342663e-09
+        "max": 6.151314735412598
       },
       "2024": {
         "tif": "data/tif/EmisCH4_Wastewater_2024.tif",
         "nc": "data/nc/posterior_ens_mean_2024.nc",
         "min": 0.0,
-        "max": 3.0246596338656673e-09
+        "max": 10.888774871826172
       }
     },
     "EmisCH4_Landfills": {
@@ -292,37 +292,37 @@
         "tif": "data/tif/EmisCH4_Landfills_2019.tif",
         "nc": "data/nc/posterior_ens_mean_2019.nc",
         "min": 0.0,
-        "max": 2.4728872283219516e-09
+        "max": 8.90239429473877
       },
       "2020": {
         "tif": "data/tif/EmisCH4_Landfills_2020.tif",
         "nc": "data/nc/posterior_ens_mean_2020.nc",
         "min": 0.0,
-        "max": 6.847177047575315e-09
+        "max": 24.649837493896484
       },
       "2021": {
         "tif": "data/tif/EmisCH4_Landfills_2021.tif",
         "nc": "data/nc/posterior_ens_mean_2021.nc",
         "min": 0.0,
-        "max": 3.4903357981619365e-09
+        "max": 12.565208435058594
       },
       "2022": {
         "tif": "data/tif/EmisCH4_Landfills_2022.tif",
         "nc": "data/nc/posterior_ens_mean_2022.nc",
         "min": 0.0,
-        "max": 4.484410620619883e-09
+        "max": 16.143878936767578
       },
       "2023": {
         "tif": "data/tif/EmisCH4_Landfills_2023.tif",
         "nc": "data/nc/posterior_ens_mean_2023.nc",
         "min": 0.0,
-        "max": 2.422380962485704e-09
+        "max": 8.720571517944336
       },
       "2024": {
         "tif": "data/tif/EmisCH4_Landfills_2024.tif",
         "nc": "data/nc/posterior_ens_mean_2024.nc",
         "min": 0.0,
-        "max": 3.2675018246663967e-09
+        "max": 11.763006210327148
       }
     },
     "EmisCH4_Rice": {
@@ -330,37 +330,37 @@
         "tif": "data/tif/EmisCH4_Rice_2019.tif",
         "nc": "data/nc/posterior_ens_mean_2019.nc",
         "min": 0.0,
-        "max": 1.3654719577260721e-09
+        "max": 4.915699005126953
       },
       "2020": {
         "tif": "data/tif/EmisCH4_Rice_2020.tif",
         "nc": "data/nc/posterior_ens_mean_2020.nc",
         "min": 0.0,
-        "max": 1.4480295851271308e-09
+        "max": 5.212906360626221
       },
       "2021": {
         "tif": "data/tif/EmisCH4_Rice_2021.tif",
         "nc": "data/nc/posterior_ens_mean_2021.nc",
         "min": 0.0,
-        "max": 7.603624951890708e-10
+        "max": 2.737304925918579
       },
       "2022": {
         "tif": "data/tif/EmisCH4_Rice_2022.tif",
         "nc": "data/nc/posterior_ens_mean_2022.nc",
         "min": 0.0,
-        "max": 5.956194981671104e-10
+        "max": 2.1442301273345947
       },
       "2023": {
         "tif": "data/tif/EmisCH4_Rice_2023.tif",
         "nc": "data/nc/posterior_ens_mean_2023.nc",
         "min": 0.0,
-        "max": 7.968156134907645e-10
+        "max": 2.8685362339019775
       },
       "2024": {
         "tif": "data/tif/EmisCH4_Rice_2024.tif",
         "nc": "data/nc/posterior_ens_mean_2024.nc",
         "min": 0.0,
-        "max": 8.304352205890098e-10
+        "max": 2.9895668029785156
       }
     },
     "EmisCH4_Reservoirs": {
@@ -368,37 +368,37 @@
         "tif": "data/tif/EmisCH4_Reservoirs_2019.tif",
         "nc": "data/nc/posterior_ens_mean_2019.nc",
         "min": 0.0,
-        "max": 1.981598440892185e-09
+        "max": 7.133754253387451
       },
       "2020": {
         "tif": "data/tif/EmisCH4_Reservoirs_2020.tif",
         "nc": "data/nc/posterior_ens_mean_2020.nc",
         "min": 0.0,
-        "max": 1.7989827405529013e-09
+        "max": 6.476337909698486
       },
       "2021": {
         "tif": "data/tif/EmisCH4_Reservoirs_2021.tif",
         "nc": "data/nc/posterior_ens_mean_2021.nc",
         "min": 0.0,
-        "max": 3.1577305215080287e-09
+        "max": 11.367830276489258
       },
       "2022": {
         "tif": "data/tif/EmisCH4_Reservoirs_2022.tif",
         "nc": "data/nc/posterior_ens_mean_2022.nc",
         "min": 0.0,
-        "max": 2.5554218741064005e-09
+        "max": 9.199518203735352
       },
       "2023": {
         "tif": "data/tif/EmisCH4_Reservoirs_2023.tif",
         "nc": "data/nc/posterior_ens_mean_2023.nc",
         "min": 0.0,
-        "max": 1.701319973790305e-09
+        "max": 6.124752044677734
       },
       "2024": {
         "tif": "data/tif/EmisCH4_Reservoirs_2024.tif",
         "nc": "data/nc/posterior_ens_mean_2024.nc",
         "min": 0.0,
-        "max": 3.144448923464438e-09
+        "max": 11.320016860961914
       }
     },
     "EmisCH4_Wetlands": {
@@ -406,37 +406,37 @@
         "tif": "data/tif/EmisCH4_Wetlands_2019.tif",
         "nc": "data/nc/posterior_ens_mean_2019.nc",
         "min": 0.0,
-        "max": 2.9755107266993264e-09
+        "max": 10.711838722229004
       },
       "2020": {
         "tif": "data/tif/EmisCH4_Wetlands_2020.tif",
         "nc": "data/nc/posterior_ens_mean_2020.nc",
         "min": 0.0,
-        "max": 1.2712380037527282e-09
+        "max": 4.5764570236206055
       },
       "2021": {
         "tif": "data/tif/EmisCH4_Wetlands_2021.tif",
         "nc": "data/nc/posterior_ens_mean_2021.nc",
         "min": 0.0,
-        "max": 1.0505228908996855e-09
+        "max": 3.7818825244903564
       },
       "2022": {
         "tif": "data/tif/EmisCH4_Wetlands_2022.tif",
         "nc": "data/nc/posterior_ens_mean_2022.nc",
         "min": 0.0,
-        "max": 6.682955855374928e-10
+        "max": 2.4058640003204346
       },
       "2023": {
         "tif": "data/tif/EmisCH4_Wetlands_2023.tif",
         "nc": "data/nc/posterior_ens_mean_2023.nc",
         "min": 0.0,
-        "max": 7.236690136025459e-10
+        "max": 2.605208396911621
       },
       "2024": {
         "tif": "data/tif/EmisCH4_Wetlands_2024.tif",
         "nc": "data/nc/posterior_ens_mean_2024.nc",
         "min": 0.0,
-        "max": 9.892221486396124e-10
+        "max": 3.56119966506958
       }
     }
   }

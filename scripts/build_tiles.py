@@ -78,7 +78,7 @@ for nc_path in sorted(IN_DIR.glob("posterior*.nc")):
             print(f"Skipping {var} (not in {nc_path.name})")
             continue
 
-        da = ds[var]
+        da = ds[var] * (1000**2) * 60 * 60 # convert to kg/km2/h
 
         arr = da.values.astype("float32")
 
