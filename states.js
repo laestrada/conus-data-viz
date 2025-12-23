@@ -66,10 +66,12 @@ const STATES_LINE_WEIGHT = 0.8;
 
 // Default sector to show on load
 const DEFAULT_SECTOR = "Total_ExclSoilAbs";
+const NATIONAL_CSV_PATH = "data/states/national_emissions.csv"; // adjust path to where you put it
 
 // ==================================================
 
 // ---- Global state ----
+let nationalByYear = {}; // nationalByYear[year] = row object
 let map;
 let statesLayer = null;
 
@@ -103,6 +105,47 @@ let unitFactor = 1;
 let unitLabel = "Tg/yr";
 
 // ===================== Helpers =====================
+function csvEscape(v) {
+  if (v == null) return "";
+  const s = String(v);
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function toCSV(rows) {
+  return rows.map(r => r.map(csvEscape).join(",")).join("\n") + "\n";
+}
+
+function downloadText(filename, text, mime = "text/csv;charset=utf-8") {
+  const blob = new Blob([text], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
+function getChartMode() {
+  const el = document.querySelector('input[name="chartMode"]:checked');
+  return el ? el.value : "state";
+}
+
+function centralCol(sector, mode) {
+  // state uses *_posterior; national uses base column name
+  return (mode === "national") ? sector : `${sector}${SCENARIO_SUFFIX}`;
+}
+
+function minCol(sector, mode) {
+  // both use *_min (state columns are "Sector_min"; not "Sector_posterior_min")
+  return `${sector}_min`;
+}
+
+function maxCol(sector, mode) {
+  return `${sector}_max`;
+}
 
 function parseNumber(x) {
   const v = Number(x);
@@ -197,6 +240,85 @@ async function loadAllCSVs() {
       sectorNames = deriveSectorsFromRow(rows[0]);
     }
   }
+}
+
+async function loadNationalCSV() {
+  const rows = await fetchCSV(NATIONAL_CSV_PATH);
+  nationalByYear = {};
+  for (const r of rows) {
+    const y = Number(r.Year);
+    if (!Number.isFinite(y)) continue;
+    nationalByYear[y] = r;
+  }
+}
+
+function currentPlaceLabel(mode) {
+  return (mode === "national") ? "National" : (selectedState ?? "None");
+}
+
+function makeBarCsvRows() {
+  const mode = getChartMode();
+  const year = Number(document.getElementById("yearSelect").value);
+  const place = currentPlaceLabel(mode);
+
+  const bar = buildBarData(year, mode); // {labels, values, mins, maxs}
+  const rows = [];
+
+  // metadata header
+  rows.push(["type", "bar"]);
+  rows.push(["mode", mode]);
+  rows.push(["place", place]);
+  rows.push(["year", year]);
+  rows.push(["units", unitLabel]);
+  rows.push([]); // blank line
+
+  // table header
+  rows.push(["sector", "value", "min", "max"]);
+
+  for (let i = 0; i < bar.labels.length; i++) {
+    const sectorKey = bar.labels[i];
+    const sectorName = SECTOR_LABELS[sectorKey] ?? sectorKey;
+    rows.push([
+      sectorName,
+      bar.values[i],
+      bar.mins[i],
+      bar.maxs[i],
+    ]);
+  }
+
+  return rows;
+}
+
+function makeLineCsvRows() {
+  const mode = getChartMode();
+  const sectorKey = document.getElementById("sectorSelect").value;
+  const sectorName = SECTOR_LABELS[sectorKey] ?? sectorKey;
+  const place = currentPlaceLabel(mode);
+
+  const line = buildLineData(mode, sectorKey); // {labels (years), values, mins, maxs}
+  const rows = [];
+
+  // metadata header
+  rows.push(["type", "timeseries"]);
+  rows.push(["mode", mode]);
+  rows.push(["place", place]);
+  rows.push(["sector", sectorName]);
+  rows.push(["units", unitLabel]);
+  rows.push([]); // blank line
+
+  // table header
+  rows.push(["year", "value", "min", "max"]);
+
+  for (let i = 0; i < line.labels.length; i++) {
+    rows.push([
+      line.labels[i],
+      line.values[i],
+      line.mins[i],
+      line.maxs[i],
+    ]);
+  }
+
+  return rows;
 }
 
 // ===================== States Layer =====================
@@ -417,47 +539,55 @@ const barErrorBarsPlugin = {
   }
 };
 
-function buildBarData(year, state) {
-  const row = dataByYear?.[year]?.[state];
+function buildBarData(year, mode) {
+  const row = (mode === "national")
+    ? nationalByYear?.[year]
+    : dataByYear?.[year]?.[selectedState];
+
   if (!row) return { labels: [], values: [], mins: [], maxs: [] };
 
   const labels = sectorNames;
-  const values = labels.map(s => scaleVal(parseNumber(row[`${s}${SCENARIO_SUFFIX}`])));
-  const mins   = labels.map(s => scaleVal(parseNumber(row[`${s}_min`])));
-  const maxs   = labels.map(s => scaleVal(parseNumber(row[`${s}_max`])));
+
+  const values = labels.map(s => scaleVal(parseNumber(row[centralCol(s, mode)])));
+  const mins   = labels.map(s => scaleVal(parseNumber(row[minCol(s, mode)])));
+  const maxs   = labels.map(s => scaleVal(parseNumber(row[maxCol(s, mode)])));
+
   return { labels, values, mins, maxs };
 }
 
-function buildLineData(state, sector) {
+function buildLineData(mode, sector) {
   const labels = YEARS.map(String);
 
   const values = YEARS.map(y => {
-    const row = dataByYear?.[y]?.[state];
-    return row ? scaleVal(parseNumber(row[`${sector}${SCENARIO_SUFFIX}`])) : null;
+    const row = (mode === "national") ? nationalByYear?.[y] : dataByYear?.[y]?.[selectedState];
+    return row ? scaleVal(parseNumber(row[centralCol(sector, mode)])) : null;
   });
 
   const mins = YEARS.map(y => {
-    const row = dataByYear?.[y]?.[state];
-    return row ? scaleVal(parseNumber(row[`${sector}_min`])) : null;
+    const row = (mode === "national") ? nationalByYear?.[y] : dataByYear?.[y]?.[selectedState];
+    return row ? scaleVal(parseNumber(row[minCol(sector, mode)])) : null;
   });
 
   const maxs = YEARS.map(y => {
-    const row = dataByYear?.[y]?.[state];
-    return row ? scaleVal(parseNumber(row[`${sector}_max`])) : null;
+    const row = (mode === "national") ? nationalByYear?.[y] : dataByYear?.[y]?.[selectedState];
+    return row ? scaleVal(parseNumber(row[maxCol(sector, mode)])) : null;
   });
 
   return { labels, values, mins, maxs };
 }
 
 function updateCharts() {
+  const mode = getChartMode();
+  const place = (mode === "national") ? "National" : selectedState;
   const year = Number(document.getElementById("yearSelect").value);
   const sector = document.getElementById("sectorSelect").value;
 
-  document.getElementById("selectedState").textContent = selectedState ?? "(none)";
+  document.getElementById("selectedState").textContent = (mode === "national") ? "National" : (selectedState ?? "(none)");
+
   if (!barChart || !lineChart) return;
 
   // no state selected: clear
-  if (!selectedState) {
+  if (mode === "state" && !selectedState) {
     barChart.data.labels = [];
     barChart.data.datasets[0].data = [];
     barChart.data.datasets[0]._errMin = [];
@@ -475,7 +605,7 @@ function updateCharts() {
   }
 
   // Bar chart
-  const bar = buildBarData(year, selectedState);
+  const bar = buildBarData(year, mode);
   barChart.data.labels = bar.labels.map(s => SECTOR_LABELS[s] ?? s);
   barChart.data.datasets[0].data = bar.values;
   barChart.data.datasets[0]._errMin = bar.mins;
@@ -492,11 +622,11 @@ function updateCharts() {
   barChart.options.scales.y.min = lim.min;
   barChart.options.scales.y.max = lim.max;
   barChart.options.scales.y.title.text = `Emissions (${unitLabel})`;
-  barChart.options.plugins.title.text = `${selectedState} – ${year}`;
+  barChart.options.plugins.title.text = `${place} – ${year}`;
   barChart.update();
 
   // Line chart (min/max shaded + central)
-  const line = buildLineData(selectedState, sector);
+  const line = buildLineData(mode, sector);
   lineChart.data.labels = line.labels;
   lineChart.data.datasets[0].data = line.mins;   // min
   lineChart.data.datasets[1].data = line.maxs;   // max (fills to min)
@@ -513,7 +643,7 @@ function updateCharts() {
   lineChart.options.scales.y.title.text = `Emissions (${unitLabel})`;
 
   const prettySector = SECTOR_LABELS[sector] ?? sector;
-  lineChart.options.plugins.title.text = `${selectedState} – ${prettySector}${SCENARIO_SUFFIX}`;
+  lineChart.options.plugins.title.text = `${place} – ${prettySector}${(mode === "state") ? SCENARIO_SUFFIX : ""}`;
   lineChart.update();
 }
 
@@ -621,6 +751,19 @@ function initSelects() {
   });
 }
 
+function hideStatesOverlay() {
+  if (statesLayer && map && map.hasLayer(statesLayer)) {
+    map.removeLayer(statesLayer);
+  }
+}
+
+function showStatesOverlay() {
+  if (statesLayer && map && !map.hasLayer(statesLayer)) {
+    statesLayer.addTo(map);
+    statesLayer.bringToFront();
+  }
+}
+
 // ===================== Map =====================
 
 async function initMap() {
@@ -654,6 +797,7 @@ async function initMap() {
 
 async function main() {
   await loadAllCSVs();
+  await loadNationalCSV();
   initSelects();
 
   // Units
@@ -666,9 +810,38 @@ async function main() {
 
   // Charts
   initCharts();
+  document.getElementById("downloadBarCsv")?.addEventListener("click", () => {
+    const mode = getChartMode();
+    if (mode === "state" && !selectedState) {
+      alert("Click a state first (or switch to National).");
+      return;
+    }
+
+    const year = document.getElementById("yearSelect").value;
+    const place = (mode === "national") ? "National" : selectedState;
+    const filename = `bar_${mode}_${place}_${year}_${unit}.csv`.replace(/\s+/g, "_");
+
+    downloadText(filename, toCSV(makeBarCsvRows()));
+  });
+
+  document.getElementById("downloadLineCsv")?.addEventListener("click", () => {
+    const mode = getChartMode();
+    if (mode === "state" && !selectedState) {
+      alert("Click a state first (or switch to National).");
+      return;
+    }
+
+    const sectorKey = document.getElementById("sectorSelect").value;
+    const sectorName = (SECTOR_LABELS[sectorKey] ?? sectorKey).replace(/\s+/g, "_");
+    const place = (mode === "national") ? "National" : selectedState;
+    const filename = `timeseries_${mode}_${place}_${sectorName}_${unit}.csv`.replace(/\s+/g, "_");
+
+    downloadText(filename, toCSV(makeLineCsvRows()));
+  });
 
   // Map must be initialized BEFORE grid overlay can be added
   await initMap();
+  if (getChartMode() === "national") hideStatesOverlay();
   recolorStates();
   updateCharts();
   gridLegendControl = L.control({ position: "bottomright" });
@@ -682,6 +855,24 @@ async function main() {
 
   // Prevent map drag/scroll when interacting with legend
   L.DomEvent.disableClickPropagation(gridLegendControl.getContainer());
+
+  document.querySelectorAll('input[name="chartMode"]').forEach(el => {
+    el.addEventListener("change", async () => {
+      const mode = getChartMode();
+
+      if (mode === "national") {
+        hideStatesOverlay();
+      } else {
+        showStatesOverlay();
+        recolorStates();
+      }
+
+      updateCharts();
+
+      // Optional: keep grid outline/click layer ordering sane
+      if (gridLayer && statesLayer && mode === "state") statesLayer.bringToFront();
+    });
+  });
 
   // Grid UI elements
   const yearSelect = document.getElementById("yearSelect");
@@ -700,16 +891,13 @@ async function main() {
       const dataMax = Number(currentGridEntry.max);
       if (!Number.isFinite(dataMin) || !Number.isFinite(dataMax) || dataMax <= dataMin) return;
 
-      gridMaxT = Number(gridMaxSliderEl.value) / 1000; // [0,1]
+      gridMaxT = Number(gridMaxSliderEl.value) / 1000;
       gridDisplayMax = dataMin + gridMaxT * (dataMax - dataMin);
-      if (gridLayer && typeof gridLayer.redraw === "function") gridLayer.redraw();
-      updateGridLegend();
 
       if (gridMaxValueEl) gridMaxValueEl.innerHTML = `${fmt(gridDisplayMax)} ${GRID_UNITS_LABEL}`;
 
-
-      // redraw should now change colors reliably
       if (gridLayer && typeof gridLayer.redraw === "function") gridLayer.redraw();
+      updateGridLegend();
     });
   }
 

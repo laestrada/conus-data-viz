@@ -76,16 +76,20 @@
     <div id="map"></div>
 
     <div class="panel">
-      <h2 class="title">U.S. State CH<sub>4</sub> emissions</h2>
+      <h2 class="title">U.S. CH<sub>4</sub> emissions</h2>
       <div class="hint">
         Click a state to see sector breakdown and timeseries.
+      </div>
+      <div class="chart-toggle" style="display:flex;gap:10px;align-items:center;">
+        <label><input type="radio" name="chartMode" value="state" checked> State</label>
+        <label><input type="radio" name="chartMode" value="national"> National</label>
       </div>
       <label for="unitSelect">Units</label>
       <select id="unitSelect">
         <option value="Tg">Tg/yr</option>
         <option value="Gg">Gg/yr</option>
       </select>
-      <label for="gridMaxSlider">Grid max</label>
+      <label for="gridMaxSlider">Gridded Emissions Max</label>
       <input id="gridMaxSlider" type="range" min="0" max="1000" step="1" value="1000" />
       <span id="gridMaxValue"></span>
       <div class="row">
@@ -105,6 +109,10 @@
       </div>
 
       <h3 class="title" style="font-size:16px;">Sector breakdown (posterior)</h3>
+      <div style="display:flex; gap:10px; align-items:center; margin: 8px 0;">
+        <button id="downloadBarCsv">Download bar CSV</button>
+        <button id="downloadLineCsv">Download timeseries CSV</button>
+      </div>
       <canvas id="barChart" height="160"></canvas>
 
       <h3 class="title" style="font-size:16px; margin-top:14px;">Timeseries (posterior)</h3>
