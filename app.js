@@ -902,6 +902,12 @@ function wireEvents() {
   state.el.gridMaxSlider.addEventListener("input", handleGridSliderInput);
 }
 
+function handleResponsiveResize() {
+  state.map?.invalidateSize();
+  state.barChart?.resize();
+  state.lineChart?.resize();
+}
+
 /* ===================== MAP INIT ===================== */
 
 async function initMap() {
@@ -973,6 +979,12 @@ async function main() {
   await initMap();
   initCharts();
   syncChartTitles();
+
+  window.addEventListener("resize", () => {
+    clearTimeout(window.__resizeTimer);
+    window.__resizeTimer = setTimeout(handleResponsiveResize, 150);
+  });
+
 
   if (getChartMode() === "national") hideStatesOverlay();
 
