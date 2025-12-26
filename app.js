@@ -1,6 +1,6 @@
 /* =========================================================
    app.js
-   ---------------------------------------------------------
+
    Responsibilities:
    - Load state + national CSV data
    - Initialize Leaflet map + state outlines
@@ -14,6 +14,7 @@
 // Years + paths
 const YEARS = [2019, 2020, 2021, 2022, 2023, 2024];
 const PRIOR_YEARS = [2019, 2020];
+
 const CSV_PATH = (year) => `data/csv/estrada_states_${year}.csv`;
 const NATIONAL_CSV_PATH = "data/csv/national_emissions.csv";
 const NATIONAL_CSV_PATH_PRIOR = "data/csv/national_prior_emissions_2017_2020.csv";
@@ -21,6 +22,7 @@ const NATIONAL_CSV_PATH_PRIOR = "data/csv/national_prior_emissions_2017_2020.csv
 // GeoJSON
 const STATES_GEOJSON_PATH = "data/ne/us_states_simplified.geojson";
 
+// State outline styling
 const STATES_FILL_OPACITY = 0.0;
 const STATES_LINE_COLOR = "#666";
 const STATES_LINE_WEIGHT = 0.8;
@@ -71,12 +73,12 @@ const GRID_RESOLUTION = 256;
 
 const state = {
   // data
-  dataByYear: {},           // [year][stateName] -> row
+  dataByYear: {},              // [year][stateName] -> row
   nationalPosteriorByYear: {}, // GHGI+TROPOMI
-  nationalPriorByYear: {},     // GHGI only
-  sectorKeys: [],           // derived from state CSV columns
-  selectedState: null,      // string or null
-  emisSource: "ghgi_tropomi", // "ghgi" or "ghgi_tropomi"
+  nationalPriorByYear: {},     // GHGI
+  sectorKeys: [],              // derived from state CSV columns
+  selectedState: null,         // string | null
+  emisSource: "ghgi_tropomi",  // "ghgi" | "ghgi_tropomi"
 
   // units (charts)
   unit: "Tg",
@@ -93,16 +95,16 @@ const state = {
   currentGridEntry: null,
   currentGridVar: null,
   gridLegendControl: null,
-  gridDisplayMax: null,     // real-value max used for color scaling (null => entry.max)
-  gridMaxT: 1.0,            // normalized slider [0..1]
-  gridGeoraster: null,      // parsed georaster
+  gridDisplayMax: null, // real-value max used for color scaling (null => use manifest max)
+  gridMaxT: 1.0,        // normalized slider value [0..1]
+  gridGeoraster: null,
 
   // charts
   barChart: null,
   lineChart: null,
 
   // cached DOM
-  el: {}
+  el: {},
 };
 
 /* ===================== UTILITIES ===================== */
@@ -116,7 +118,6 @@ function parseNumber(x) {
   return Number.isFinite(v) ? v : null;
 }
 
-// Non-scientific label formatting
 function fmt(v) {
   if (v == null || !Number.isFinite(v)) return "";
   const abs = Math.abs(v);
@@ -142,9 +143,7 @@ function getNiceLimits(minVal, maxVal) {
   if (minVal === maxVal) return { min: 0, max: maxVal * 1.1 + 1e-9 };
 
   const pad = 0.06 * (maxVal - minVal);
-  let lo = Math.max(0, minVal - pad);
-  let hi = maxVal + pad;
-  return { min: lo, max: hi };
+  return { min: Math.max(0, minVal - pad), max: maxVal + pad };
 }
 
 function labelSector(sectorKey) {
@@ -152,9 +151,7 @@ function labelSector(sectorKey) {
 }
 
 function emisSourceLabel(emisSource) {
-  return (emisSource === "ghgi")
-    ? "GHGI"
-    : "GHGI+TROPOMI";
+  return (emisSource === "ghgi") ? "GHGI" : "GHGI+TROPOMI";
 }
 
 /* ===================== MODE + COLUMN HELPERS ===================== */
@@ -174,7 +171,6 @@ function getEmisSource() {
 }
 
 function mapValueCol(emisSource) {
-  // adjust these names if your "total" column differs
   return (emisSource === "ghgi") ? "Total_prior" : "Total_posterior";
 }
 
@@ -183,14 +179,10 @@ function currentPlaceLabel(mode) {
 }
 
 function stateCentralCol(sectorKey, emisSource) {
-  if (emisSource === "ghgi") {
-    return `${sectorKey}_prior`;
-  } else {
-    return `${sectorKey}_posterior`;
-  }
+  return (emisSource === "ghgi") ? `${sectorKey}_prior` : `${sectorKey}_posterior`;
 }
 
-// national columns are base sectorKey without suffix
+// National columns are base sectorKey without suffix
 function centralCol(sectorKey, mode, emisSource) {
   return (mode === "national") ? sectorKey : stateCentralCol(sectorKey, emisSource);
 }
@@ -217,12 +209,14 @@ function toCSV(rows) {
 function downloadText(filename, text, mime = "text/csv;charset=utf-8") {
   const blob = new Blob([text], { type: mime });
   const url = URL.createObjectURL(blob);
+
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
   document.body.appendChild(a);
   a.click();
   a.remove();
+
   URL.revokeObjectURL(url);
 }
 
@@ -231,16 +225,16 @@ function makeBarCsvRows(mode, year) {
   const emisSource = getEmisSource();
   const bar = buildBarData(year, mode, emisSource);
 
-  const rows = [];
-  rows.push(["type", "bar"]);
-  rows.push(["mode", mode]);
-  rows.push(["place", place]);
-  rows.push(["year", year]);
-  rows.push(["units", state.unitLabel]);
-  rows.push(["data_source", emisSourceLabel(emisSource)]);
-  rows.push([]);
-  rows.push(["sector", "value", "min", "max"]);
-
+  const rows = [
+    ["type", "bar"],
+    ["mode", mode],
+    ["place", place],
+    ["year", year],
+    ["units", state.unitLabel],
+    ["data_source", emisSourceLabel(emisSource)],
+    [],
+    ["sector", "value", "min", "max"],
+  ];
 
   for (let i = 0; i < bar.labels.length; i++) {
     const key = bar.labels[i];
@@ -254,22 +248,22 @@ function makeLineCsvRows(mode, sectorKey) {
   const emisSource = getEmisSource();
   const line = buildLineData(mode, sectorKey, emisSource);
 
-  const rows = [];
-  rows.push(["type", "timeseries"]);
-  rows.push(["mode", mode]);
-  rows.push(["place", place]);
-  rows.push(["sector", labelSector(sectorKey)]);
-  rows.push(["units", state.unitLabel]);
-  rows.push(["data_source", emisSourceLabel(emisSource)]);
-  rows.push([]);
-  rows.push(["year", "value", "min", "max"]);
+  const rows = [
+    ["type", "timeseries"],
+    ["mode", mode],
+    ["place", place],
+    ["sector", labelSector(sectorKey)],
+    ["units", state.unitLabel],
+    ["data_source", emisSourceLabel(emisSource)],
+    [],
+    ["year", "value", "min", "max"],
+  ];
 
   for (let i = 0; i < line.labels.length; i++) {
     rows.push([line.labels[i], line.values[i], line.mins[i], line.maxs[i]]);
   }
   return rows;
 }
-
 
 /* ===================== DATA LOADING ===================== */
 
@@ -281,7 +275,7 @@ async function fetchCSV(url) {
       dynamicTyping: false,
       skipEmptyLines: true,
       complete: (results) => resolve(results.data),
-      error: reject
+      error: reject,
     });
   });
 }
@@ -302,8 +296,7 @@ async function loadStateCSVs() {
 
     for (const r of rows) {
       const name = r.State?.trim();
-      if (!name) continue;
-      state.dataByYear[y][name] = r;
+      if (name) state.dataByYear[y][name] = r;
     }
 
     if (state.sectorKeys.length === 0 && rows.length > 0) {
@@ -313,7 +306,6 @@ async function loadStateCSVs() {
 }
 
 async function loadNationalCSVs() {
-  // Posterior (GHGI+TROPOMI)
   const rowsPost = await fetchCSV(NATIONAL_CSV_PATH);
   state.nationalPosteriorByYear = {};
   for (const r of rowsPost) {
@@ -321,7 +313,6 @@ async function loadNationalCSVs() {
     if (Number.isFinite(y)) state.nationalPosteriorByYear[y] = r;
   }
 
-  // Prior (GHGI)
   const rowsPrior = await fetchCSV(NATIONAL_CSV_PATH_PRIOR);
   state.nationalPriorByYear = {};
   for (const r of rowsPrior) {
@@ -331,10 +322,10 @@ async function loadNationalCSVs() {
 }
 
 function hasUncertainty(emisSource) {
-  return emisSource !== "ghgi"; // only GHGI+TROPOMI has min/max
+  return emisSource !== "ghgi";
 }
 
-/* ===================== STATE LAYER ===================== */
+/* ===================== STATE OUTLINES ===================== */
 
 function makeChoroplethStyle(year, feature) {
   const props = feature.properties || {};
@@ -348,30 +339,27 @@ function makeChoroplethStyle(year, feature) {
     color: STATES_LINE_COLOR,
     weight: STATES_LINE_WEIGHT,
     fillColor: (v == null) ? "#00000000" : "#3388ff",
-    fillOpacity: (v == null) ? 0.0 : STATES_FILL_OPACITY
+    fillOpacity: (v == null) ? 0.0 : STATES_FILL_OPACITY,
   };
 }
 
 function recolorStates() {
   if (!state.statesLayer) return;
-  const year = Number(state.el.yearSelect.value);
 
+  const year = Number(state.el.yearSelect.value);
   state.statesLayer.setStyle((feature) => makeChoroplethStyle(year, feature));
 
-  // highlight selected
-  if (state.selectedState) {
-    state.statesLayer.eachLayer(layer => {
-      const props = layer.feature?.properties || {};
-      const name = props.name || props.NAME || props.STATE_NAME;
-      if (name === state.selectedState) {
-        layer.setStyle({ weight: 2, color: "#000" });
-      }
-    });
-  }
+  if (!state.selectedState) return;
+
+  state.statesLayer.eachLayer(layer => {
+    const props = layer.feature?.properties || {};
+    const name = props.name || props.NAME || props.STATE_NAME;
+    if (name === state.selectedState) layer.setStyle({ weight: 2, color: "#000" });
+  });
 }
 
 function hideStatesOverlay() {
-  if (state.statesLayer && state.map && state.map.hasLayer(state.statesLayer)) {
+  if (state.statesLayer && state.map?.hasLayer(state.statesLayer)) {
     state.map.removeLayer(state.statesLayer);
   }
 }
@@ -428,13 +416,9 @@ function syncGridSliderToEntry() {
 
   slider.disabled = false;
 
-  // default max to dataMax if unset
   if (state.gridDisplayMax == null) state.gridDisplayMax = dataMax;
 
-  // clamp
   state.gridDisplayMax = Math.max(dataMin, Math.min(dataMax, state.gridDisplayMax));
-
-  // normalized
   state.gridMaxT = (state.gridDisplayMax - dataMin) / (dataMax - dataMin);
   state.gridMaxT = Math.max(0, Math.min(1, state.gridMaxT));
 
@@ -444,7 +428,7 @@ function syncGridSliderToEntry() {
 
 function updateGridLegend() {
   const ctl = state.gridLegendControl;
-  if (!ctl || !ctl._container) return;
+  if (!ctl?._container) return;
 
   if (!state.currentGridEntry) {
     ctl._container.innerHTML = "";
@@ -454,7 +438,6 @@ function updateGridLegend() {
   const min = Number(state.currentGridEntry.min ?? 0);
   const max = getEffectiveGridMax();
 
-  // gradient
   const steps = 40;
   const colors = [];
   for (let i = 0; i < steps; i++) {
@@ -462,9 +445,9 @@ function updateGridLegend() {
   }
   const gradient = `linear-gradient(to right, ${colors.join(",")})`;
 
-  // label legend by sector (invert mapping)
-  const sectorKey = Object.keys(GRID_VAR_BY_SECTOR).find(k => GRID_VAR_BY_SECTOR[k] === state.currentGridVar)
-    ?? DEFAULT_SECTOR;
+  const sectorKey =
+    Object.keys(GRID_VAR_BY_SECTOR).find(k => GRID_VAR_BY_SECTOR[k] === state.currentGridVar) ??
+    DEFAULT_SECTOR;
 
   ctl._container.innerHTML = `
     <div class="legend">
@@ -481,7 +464,7 @@ function updateGridLegend() {
 
 async function setGridLayerForSelection() {
   const toggle = state.el.gridToggle;
-  if (!toggle || !toggle.checked) return;
+  if (!toggle?.checked) return;
 
   await ensureGridManifestLoaded();
 
@@ -494,7 +477,7 @@ async function setGridLayerForSelection() {
 
   const entry = state.gridManifest?.data?.[gridVar]?.[yearKey];
   if (!entry) {
-    console.warn("No GeoTIFF entry for", { gridVar, year, sectorKey });
+    console.warn("No GeoTIFF entry for", { gridVar, yearKey, sectorKey });
     state.currentGridEntry = null;
     state.currentGridVar = null;
     syncGridSliderToEntry();
@@ -505,7 +488,6 @@ async function setGridLayerForSelection() {
   state.currentGridEntry = entry;
   state.currentGridVar = gridVar;
 
-  // remove old layer
   if (state.gridLayer) {
     state.map.removeLayer(state.gridLayer);
     state.gridLayer = null;
@@ -531,12 +513,11 @@ async function setGridLayerForSelection() {
 
       const t = Math.max(0, Math.min(1, (v - min) / denom));
       return chroma.scale(GRID_COLORMAP)(t).hex();
-    }
+    },
   });
 
   state.gridLayer.addTo(state.map);
 
-  // keep outlines on top in state mode
   if (getChartMode() === "state" && state.statesLayer) state.statesLayer.bringToFront();
 
   syncGridSliderToEntry();
@@ -556,20 +537,19 @@ function handleGridSliderInput() {
 
   state.el.gridMaxValue.innerHTML = `${fmt(state.gridDisplayMax)} ${GRID_UNITS_HTML}`;
 
-  if (state.gridLayer && typeof state.gridLayer.redraw === "function") state.gridLayer.redraw();
+  if (state.gridLayer?.redraw) state.gridLayer.redraw();
   updateGridLegend();
 }
 
 /* ===================== CHARTS ===================== */
 
-// Custom plugin: draw error bars from dataset[0]._errMin/_errMax
+// Draw bar error bars using dataset[0]._errMin/_errMax
 const barErrorBarsPlugin = {
   id: "barErrorBars",
   afterDatasetsDraw(chart) {
     const emisSource = getEmisSource();
     if (!hasUncertainty(emisSource)) return;
 
-    const { ctx } = chart;
     const meta = chart.getDatasetMeta(0);
     if (!meta?.data?.length) return;
 
@@ -578,6 +558,7 @@ const barErrorBarsPlugin = {
     const maxs = ds._errMax || [];
     if (!mins.length || !maxs.length) return;
 
+    const { ctx } = chart;
     ctx.save();
     ctx.lineWidth = 1;
 
@@ -597,15 +578,15 @@ const barErrorBarsPlugin = {
     });
 
     ctx.restore();
-  }
+  },
 };
 
 function getRowFor(mode, year) {
   if (mode === "national") {
     const emisSource = getEmisSource();
     return (emisSource === "ghgi")
-      ? state.nationalPriorByYear?.[year] ?? null
-      : state.nationalPosteriorByYear?.[year] ?? null;
+      ? (state.nationalPriorByYear?.[year] ?? null)
+      : (state.nationalPosteriorByYear?.[year] ?? null);
   }
 
   if (!state.selectedState) return null;
@@ -619,19 +600,21 @@ function buildBarData(year, mode, emisSource) {
   const labels = state.sectorKeys;
   const values = labels.map(s => scaleVal(parseNumber(row[centralCol(s, mode, emisSource)])));
 
-  let mins = [];
-  let maxs = [];
-
-  if (hasUncertainty(emisSource)) {
-    mins = labels.map(s => scaleVal(parseNumber(row[minCol(s)])));
-    maxs = labels.map(s => scaleVal(parseNumber(row[maxCol(s)])));
-  } else {
-    // keep arrays same length; plugin will skip anyway
-    mins = labels.map(() => null);
-    maxs = labels.map(() => null);
+  if (!hasUncertainty(emisSource)) {
+    return {
+      labels,
+      values,
+      mins: labels.map(() => null),
+      maxs: labels.map(() => null),
+    };
   }
 
-  return { labels, values, mins, maxs };
+  return {
+    labels,
+    values,
+    mins: labels.map(s => scaleVal(parseNumber(row[minCol(s)]))),
+    maxs: labels.map(s => scaleVal(parseNumber(row[maxCol(s)]))),
+  };
 }
 
 function buildLineData(mode, sectorKey, emisSource) {
@@ -643,23 +626,19 @@ function buildLineData(mode, sectorKey, emisSource) {
     return row ? scaleVal(parseNumber(row[centralCol(sectorKey, mode, emisSource)])) : null;
   });
 
-  let mins = [];
-  let maxs = [];
-
-  if (hasUncertainty(emisSource)) {
-    mins = yrs.map(y => {
-      const row = getRowFor(mode, y);
-      return row ? scaleVal(parseNumber(row[minCol(sectorKey)])) : null;
-    });
-
-    maxs = yrs.map(y => {
-      const row = getRowFor(mode, y);
-      return row ? scaleVal(parseNumber(row[maxCol(sectorKey)])) : null;
-    });
-  } else {
-    mins = labels.map(() => null);
-    maxs = labels.map(() => null);
+  if (!hasUncertainty(emisSource)) {
+    return { labels, values, mins: labels.map(() => null), maxs: labels.map(() => null) };
   }
+
+  const mins = yrs.map(y => {
+    const row = getRowFor(mode, y);
+    return row ? scaleVal(parseNumber(row[minCol(sectorKey)])) : null;
+  });
+
+  const maxs = yrs.map(y => {
+    const row = getRowFor(mode, y);
+    return row ? scaleVal(parseNumber(row[maxCol(sectorKey)])) : null;
+  });
 
   return { labels, values, mins, maxs };
 }
@@ -684,65 +663,56 @@ function clearCharts() {
 
 function syncChartTitles() {
   const emisSource = getEmisSource();
-  const suffix = emisSourceLabel(emisSource); // Inventory (GHGI) / Posterior (GHGI+TROPOMI)
+  const suffix = emisSourceLabel(emisSource);
 
-  // Section subtitles (DOM)
   if (state.el.barChartTitle) state.el.barChartTitle.textContent = `Sector breakdown (${suffix})`;
   if (state.el.lineChartTitle) state.el.lineChartTitle.textContent = `Timeseries (${suffix})`;
 
-  // Chart dataset labels (optional, but nice for exports/tooltips)
-  if (state.barChart?.data?.datasets?.[0]) {
-    state.barChart.data.datasets[0].label = suffix;
-  }
-  if (state.lineChart?.data?.datasets?.[2]) {
-    state.lineChart.data.datasets[2].label = suffix;
-  }
+  if (state.barChart?.data?.datasets?.[0]) state.barChart.data.datasets[0].label = suffix;
+  if (state.lineChart?.data?.datasets?.[2]) state.lineChart.data.datasets[2].label = suffix;
 }
 
 function updateCharts() {
   const mode = getChartMode();
   const emisSource = getEmisSource();
-  syncChartTitles();
   const year = Number(state.el.yearSelect.value);
   const sectorKey = state.el.sectorSelect.value;
   const place = currentPlaceLabel(mode);
+
+  syncChartTitles();
   updateDataHint();
 
-  // selected label in UI
-  state.el.selectedState.textContent = (mode === "national") ? "National" : (state.selectedState ?? "(none)");
+  state.el.selectedState.textContent = (mode === "national")
+    ? "National"
+    : (state.selectedState ?? "(none)");
 
   if (!state.barChart || !state.lineChart) return;
+  if (mode === "state" && !state.selectedState) return clearCharts();
 
-  if (mode === "state" && !state.selectedState) {
-    clearCharts();
-    return;
-  }
-
-  // ---- BAR ----
+  // BAR
   const bar = buildBarData(year, mode, emisSource);
   state.barChart.data.labels = bar.labels.map(labelSector);
   state.barChart.data.datasets[0].data = bar.values;
   state.barChart.data.datasets[0]._errMin = bar.mins;
   state.barChart.data.datasets[0]._errMax = bar.maxs;
 
+  const finiteVals = bar.values.filter(Number.isFinite);
   const finiteMins = bar.mins.filter(Number.isFinite);
   const finiteMaxs = bar.maxs.filter(Number.isFinite);
+
   const overallMin = finiteMins.length ? Math.min(...finiteMins) : 0;
-  const finiteVals = bar.values.filter(Number.isFinite);
   const overallMax = finiteMaxs.length
     ? Math.max(...finiteMaxs)
     : (finiteVals.length ? Math.max(...finiteVals) : 1);
 
   const lim = getNiceLimits(overallMin, overallMax);
-
   state.barChart.options.scales.y.min = lim.min;
   state.barChart.options.scales.y.max = lim.max;
   state.barChart.options.scales.y.title.text = `Emissions (${state.unitLabel})`;
   state.barChart.options.plugins.title.text = `${place} – ${year} (${emisSourceLabel(emisSource)})`;
-
   state.barChart.update();
 
-  // ---- LINE ----
+  // LINE
   const line = buildLineData(mode, sectorKey, emisSource);
   state.lineChart.data.labels = line.labels;
 
@@ -751,7 +721,6 @@ function updateCharts() {
     state.lineChart.data.datasets[1].data = line.maxs;
     state.lineChart.data.datasets[1].fill = "-1";
   } else {
-    // hide band
     const blanks = line.labels.map(() => null);
     state.lineChart.data.datasets[0].data = blanks;
     state.lineChart.data.datasets[1].data = blanks;
@@ -767,50 +736,34 @@ function updateCharts() {
     lmin = finiteMins2.length ? Math.min(...finiteMins2) : 0;
     lmax = finiteMaxs2.length ? Math.max(...finiteMaxs2) : 1;
   } else {
-    const finiteVals = line.values.filter(Number.isFinite);
-    lmin = finiteVals.length ? Math.min(...finiteVals) : 0;
-    lmax = finiteVals.length ? Math.max(...finiteVals) : 1;
+    const finiteVals2 = line.values.filter(Number.isFinite);
+    lmin = finiteVals2.length ? Math.min(...finiteVals2) : 0;
+    lmax = finiteVals2.length ? Math.max(...finiteVals2) : 1;
   }
-  const lim2 = getNiceLimits(lmin, lmax);
 
+  const lim2 = getNiceLimits(lmin, lmax);
   state.lineChart.options.scales.y.min = lim2.min;
   state.lineChart.options.scales.y.max = lim2.max;
   state.lineChart.options.scales.y.title.text = `Emissions (${state.unitLabel})`;
-
-  const prettySector = labelSector(sectorKey);
-  state.lineChart.options.plugins.title.text =
-    `${place} – ${prettySector} (${emisSourceLabel(emisSource)})`;
-
+  state.lineChart.options.plugins.title.text = `${place} – ${labelSector(sectorKey)} (${emisSourceLabel(emisSource)})`;
   state.lineChart.update();
 }
 
 function initCharts() {
-  // Bar
   state.barChart = new Chart(state.el.barChart, {
     type: "bar",
     data: {
       labels: [],
-      datasets: [{
-        label: "Sector",
-        data: [],
-        _errMin: [],
-        _errMax: []
-      }]
+      datasets: [{ label: "Sector", data: [], _errMin: [], _errMax: [] }],
     },
     options: {
       responsive: true,
       plugins: { title: { display: true, text: "Click a state" }, legend: { display: false } },
-      scales: {
-        y: {
-          beginAtZero: true,
-          title: { display: true, text: `Emissions (${state.unitLabel})` }
-        }
-      }
+      scales: { y: { beginAtZero: true, title: { display: true, text: `Emissions (${state.unitLabel})` } } },
     },
-    plugins: [barErrorBarsPlugin]
+    plugins: [barErrorBarsPlugin],
   });
 
-  // Line: [min, max(fill), central]
   state.lineChart = new Chart(state.el.lineChart, {
     type: "line",
     data: {
@@ -818,19 +771,14 @@ function initCharts() {
       datasets: [
         { label: "min", data: [], pointRadius: 0, borderWidth: 0 },
         { label: "max", data: [], pointRadius: 0, borderWidth: 0, fill: "-1", backgroundColor: "rgba(0,0,0,0.12)" },
-        { label: "Value", data: [], tension: 0.2, pointRadius: 2 }
-      ]
+        { label: "Value", data: [], tension: 0.2, pointRadius: 2 },
+      ],
     },
     options: {
       responsive: true,
       plugins: { title: { display: true, text: "" }, legend: { display: false } },
-      scales: {
-        y: {
-          beginAtZero: true,
-          title: { display: true, text: `Emissions (${state.unitLabel})` }
-        }
-      }
-    }
+      scales: { y: { beginAtZero: true, title: { display: true, text: `Emissions (${state.unitLabel})` } } },
+    },
   });
 }
 
@@ -848,7 +796,6 @@ function populateSelect(selectEl, items, defaultValue) {
 }
 
 function initSelects() {
-  // year
   const emisSource = getEmisSource();
   const yrs = activeYears(emisSource);
 
@@ -861,9 +808,15 @@ function initSelects() {
   }
   state.el.yearSelect.value = yrs[yrs.length - 1];
 
-  // sector (unchanged)
-  const defaultSector = state.sectorKeys.includes(DEFAULT_SECTOR) ? DEFAULT_SECTOR : (state.sectorKeys[0] ?? "");
+  const defaultSector =
+    state.sectorKeys.includes(DEFAULT_SECTOR) ? DEFAULT_SECTOR : (state.sectorKeys[0] ?? "");
   populateSelect(state.el.sectorSelect, state.sectorKeys, defaultSector);
+}
+
+function updateDataHint() {
+  if (!state.el.dataHint) return;
+  state.el.dataHint.textContent =
+    (getEmisSource() === "ghgi") ? "Note: GHGI selection only shows 2019–2020 data." : "";
 }
 
 function wireEvents() {
@@ -876,8 +829,9 @@ function wireEvents() {
 
       updateCharts();
 
-      // keep outlines on top over grid in state mode
-      if (mode === "state" && state.gridLayer && state.statesLayer) state.statesLayer.bringToFront();
+      if (mode === "state" && state.gridLayer && state.statesLayer) {
+        state.statesLayer.bringToFront();
+      }
     });
   });
 
@@ -885,18 +839,15 @@ function wireEvents() {
   state.el.dataSourceSelect?.addEventListener("change", async () => {
     state.emisSource = getEmisSource();
 
-    // rebuild year options based on source (and changes selected year)
     initSelects();
-
     syncChartTitles();
     recolorStates();
     updateCharts();
 
-    // IMPORTANT: refresh grid overlay to prior/posterior tif
+    // Refresh grid to prior/posterior tif (and reset scaling)
     state.gridDisplayMax = null;
     await setGridLayerForSelection();
   });
-
 
   // Year/Sector
   state.el.yearSelect.addEventListener("change", async () => {
@@ -937,31 +888,18 @@ function wireEvents() {
     }
     const sectorKey = state.el.sectorSelect.value;
     const place = (mode === "national") ? "National" : state.selectedState;
-    const filename = `timeseries_${mode}_${place}_${labelSector(sectorKey)}_${state.unit}.csv`.replace(/\s+/g, "_");
+    const filename = `timeseries_${mode}_${place}_${labelSector(sectorKey)}_${state.unit}.csv`
+      .replace(/\s+/g, "_");
     downloadText(filename, toCSV(makeLineCsvRows(mode, sectorKey)));
   });
 
-  // Grid toggle
+  // Grid toggle + slider
   state.el.gridToggle.addEventListener("change", async () => {
     if (state.el.gridToggle.checked) await setGridLayerForSelection();
     else clearGrid();
   });
 
-  // Grid slider
   state.el.gridMaxSlider.addEventListener("input", handleGridSliderInput);
-}
-
-function updateDataHint() {
-  const mode = getChartMode();
-  const emisSource = getEmisSource();
-
-  if (!state.el.dataHint) return;
-
-  if (emisSource === "ghgi") {
-    state.el.dataHint.textContent = "Note: GHGI selection only shows 2019-2020 data.";
-  } else {
-    state.el.dataHint.textContent = "";
-  }
 }
 
 /* ===================== MAP INIT ===================== */
@@ -971,7 +909,7 @@ async function initMap() {
 
   L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
     maxZoom: 10,
-    attribution: "&copy; OpenStreetMap contributors"
+    attribution: "&copy; OpenStreetMap contributors",
   }).addTo(state.map);
 
   const res = await fetch(STATES_GEOJSON_PATH);
@@ -982,18 +920,15 @@ async function initMap() {
     onEachFeature: (feature, layer) => {
       layer.on("click", () => {
         const props = feature.properties || {};
-        const name = props.name || props.NAME || props.STATE_NAME;
-        state.selectedState = name;
+        state.selectedState = props.name || props.NAME || props.STATE_NAME;
 
         recolorStates();
-        // If they click a state, it's usually because they want state mode
-        // (but we don't force mode change; charts update based on current mode)
         updateCharts();
       });
 
       layer.on("mouseover", () => layer.setStyle({ weight: 2 }));
       layer.on("mouseout", () => recolorStates());
-    }
+    },
   }).addTo(state.map);
 
   // Grid legend control
@@ -1011,7 +946,6 @@ async function initMap() {
 /* ===================== BOOTSTRAP ===================== */
 
 async function main() {
-  // Cache DOM
   state.el = {
     yearSelect: $("yearSelect"),
     sectorSelect: $("sectorSelect"),
@@ -1030,32 +964,24 @@ async function main() {
     dataHint: $("dataHint"),
   };
 
-  // Data
   await loadStateCSVs();
   await loadNationalCSVs();
 
-  // UI defaults
   initSelects();
   setUnits(state.el.unitSelect.value);
 
-  // Map + charts
   await initMap();
   initCharts();
   syncChartTitles();
 
-  // Initial mode effects
   if (getChartMode() === "national") hideStatesOverlay();
+
   recolorStates();
   updateCharts();
 
-  // Grid initial state
-  if (state.el.gridToggle.checked) {
-    await setGridLayerForSelection();
-  } else {
-    clearGrid();
-  }
+  if (state.el.gridToggle.checked) await setGridLayerForSelection();
+  else clearGrid();
 
-  // Wire events last (after everything exists)
   wireEvents();
 }
 
