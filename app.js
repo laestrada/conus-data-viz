@@ -66,7 +66,7 @@ const GRID_VAR_BY_SECTOR = {
 
 const GRID_UNITS_HTML = "kg km<sup>-2</sup> h<sup>-1</sup>";
 const GRID_COLORMAP = "ylorrd";
-const GRID_OPACITY = 0.60;
+const GRID_OPACITY = 0.40;
 const GRID_RESOLUTION = 256;
 
 /* ===================== APP STATE ===================== */
@@ -90,8 +90,11 @@ const state = {
   statesLayer: null,
 
   // grid overlay
+  colorbarRefEntry: null,
   gridManifest: null,
   gridLayer: null,
+  gridVarDomainCache: {}, // gridVar -> { min, max }
+  gridOpacity: GRID_OPACITY,
   currentGridEntry: null,
   currentGridVar: null,
   gridLegendControl: null,
@@ -373,13 +376,71 @@ function showStatesOverlay() {
 
 /* ===================== GRID OVERLAY ===================== */
 
+function getGlobalDomainForGridVar(gridVar) {
+  // Cache so we don't rescan every time
+  if (state.gridVarDomainCache?.[gridVar]) return state.gridVarDomainCache[gridVar];
+
+  const entries = state.gridManifest?.data?.[gridVar];
+  if (!entries) return null;
+
+  let gMin = Infinity;
+  let gMax = -Infinity;
+
+  for (const key of Object.keys(entries)) {
+    const e = entries[key];
+    if (!e) continue;
+
+    const mn = Number(e.min);
+    const mx = Number(e.max);
+    if (Number.isFinite(mn)) gMin = Math.min(gMin, mn);
+    if (Number.isFinite(mx)) gMax = Math.max(gMax, mx);
+  }
+
+  if (!Number.isFinite(gMin) || !Number.isFinite(gMax) || gMax <= gMin) return null;
+
+  const dom = { min: gMin, max: gMax };
+  state.gridVarDomainCache[gridVar] = dom;
+  return dom;
+}
+
 function gridVarForSector(sectorKey) {
   return GRID_VAR_BY_SECTOR[sectorKey] ?? "EmisCH4_Total";
+}
+
+function getColorbarReferenceEntry(gridVar, year) {
+  // Always use GHGI+TROPOMI entry (no "_prior") for colorbar min/max domain
+  return state.gridManifest?.data?.[gridVar]?.[String(year)] ?? null;
 }
 
 async function ensureGridManifestLoaded() {
   if (state.gridManifest) return;
   state.gridManifest = await (await fetch(GRID_MANIFEST_PATH)).json();
+}
+
+function getGridOpacity() {
+  const el = state.el.gridOpacitySlider;
+  if (!el) return GRID_OPACITY;
+  const v = Number(el.value);
+  return Number.isFinite(v) ? Math.max(0, Math.min(1, v / 100)) : GRID_OPACITY;
+}
+
+function syncGridOpacityUI() {
+  const el = state.el.gridOpacitySlider;
+  const out = state.el.gridOpacityValue;
+  if (!el || !out) return;
+  out.textContent = `${Math.round(getGridOpacity() * 100)}%`;
+}
+
+function applyGridOpacity() {
+  state.gridOpacity = getGridOpacity();
+  syncGridOpacityUI();
+  if (state.gridLayer && typeof state.gridLayer.setOpacity === "function") {
+    state.gridLayer.setOpacity(state.gridOpacity);
+  } else if (state.gridLayer?.options) {
+    // fallback for implementations without setOpacity
+    state.gridLayer.options.opacity = state.gridOpacity;
+    state.gridLayer.redraw?.();
+  }
 }
 
 function clearGrid() {
@@ -393,32 +454,37 @@ function clearGrid() {
 }
 
 function getEffectiveGridMax() {
-  const entry = state.currentGridEntry;
-  if (!entry) return null;
-  const maxRaw = Number(entry.max ?? 1);
+  const dom = state.currentGridVar ? getGlobalDomainForGridVar(state.currentGridVar) : null;
+  if (!dom) return null;
+
+  const maxRaw = Number(dom.max ?? 1);
   return (state.gridDisplayMax != null) ? Number(state.gridDisplayMax) : maxRaw;
 }
 
 function syncGridSliderToEntry() {
-  const entry = state.currentGridEntry;
   const slider = state.el.gridMaxSlider;
   const out = state.el.gridMaxValue;
-  if (!slider || !out || !entry) return;
 
-  const dataMin = Number(entry.min);
-  const dataMax = Number(entry.max);
+  if (!slider || !out || !state.currentGridEntry || !state.currentGridVar) return;
 
-  if (!Number.isFinite(dataMin) || !Number.isFinite(dataMax) || dataMax <= dataMin) {
+  const dom = getGlobalDomainForGridVar(state.currentGridVar);
+  if (!dom) {
     slider.disabled = true;
     out.textContent = "";
     return;
   }
 
+  const dataMin = dom.min;
+  const dataMax = dom.max;
+
   slider.disabled = false;
 
+  // Only initialize if user hasn't set it yet
   if (state.gridDisplayMax == null) state.gridDisplayMax = dataMax;
 
+  // Clamp within global domain
   state.gridDisplayMax = Math.max(dataMin, Math.min(dataMax, state.gridDisplayMax));
+
   state.gridMaxT = (state.gridDisplayMax - dataMin) / (dataMax - dataMin);
   state.gridMaxT = Math.max(0, Math.min(1, state.gridMaxT));
 
@@ -430,12 +496,18 @@ function updateGridLegend() {
   const ctl = state.gridLegendControl;
   if (!ctl?._container) return;
 
-  if (!state.currentGridEntry) {
+  if (!state.currentGridEntry || !state.currentGridVar) {
     ctl._container.innerHTML = "";
     return;
   }
 
-  const min = Number(state.currentGridEntry.min ?? 0);
+  const dom = getGlobalDomainForGridVar(state.currentGridVar);
+  if (!dom) {
+    ctl._container.innerHTML = "";
+    return;
+  }
+
+  const min = dom.min;
   const max = getEffectiveGridMax();
 
   const steps = 40;
@@ -463,9 +535,6 @@ function updateGridLegend() {
 }
 
 async function setGridLayerForSelection() {
-  const toggle = state.el.gridToggle;
-  if (!toggle?.checked) return;
-
   await ensureGridManifestLoaded();
 
   const year = Number(state.el.yearSelect.value);
@@ -485,14 +554,18 @@ async function setGridLayerForSelection() {
     return;
   }
 
-  state.currentGridEntry = entry;
-  state.currentGridVar = gridVar;
-
+  // remove old layer
   if (state.gridLayer) {
     state.map.removeLayer(state.gridLayer);
     state.gridLayer = null;
     state.gridGeoraster = null;
   }
+
+  state.currentGridEntry = entry;
+  state.currentGridVar = gridVar;
+
+  // reference entry ALWAYS posterior for slider + legend + colormap scaling
+  state.colorbarRefEntry = getColorbarReferenceEntry(gridVar, year) || entry;
 
   const resp = await fetch(entry.tif);
   const arrayBuffer = await resp.arrayBuffer();
@@ -501,13 +574,14 @@ async function setGridLayerForSelection() {
 
   state.gridLayer = new GeoRasterLayer({
     georaster,
-    opacity: GRID_OPACITY,
+    opacity: getGridOpacity(),
     resolution: GRID_RESOLUTION,
     pixelValuesToColorFn: (vals) => {
       const v = vals?.[0];
       if (v == null || Number.isNaN(v)) return null;
 
-      const min = Number(state.currentGridEntry?.min ?? 0);
+      const dom = state.currentGridVar ? getGlobalDomainForGridVar(state.currentGridVar) : null;
+      const min = Number(dom?.min ?? 0);
       const max = getEffectiveGridMax();
       const denom = (max - min) || 1;
 
@@ -525,19 +599,20 @@ async function setGridLayerForSelection() {
 }
 
 function handleGridSliderInput() {
-  const entry = state.currentGridEntry;
-  if (!entry) return;
+  if (!state.currentGridVar) return;
 
-  const dataMin = Number(entry.min);
-  const dataMax = Number(entry.max);
-  if (!Number.isFinite(dataMin) || !Number.isFinite(dataMax) || dataMax <= dataMin) return;
+  const dom = getGlobalDomainForGridVar(state.currentGridVar);
+  if (!dom) return;
+
+  const dataMin = dom.min;
+  const dataMax = dom.max;
 
   state.gridMaxT = Number(state.el.gridMaxSlider.value) / 1000;
   state.gridDisplayMax = dataMin + state.gridMaxT * (dataMax - dataMin);
 
   state.el.gridMaxValue.innerHTML = `${fmt(state.gridDisplayMax)} ${GRID_UNITS_HTML}`;
 
-  if (state.gridLayer?.redraw) state.gridLayer.redraw();
+  state.gridLayer?.redraw?.();
   updateGridLegend();
 }
 
@@ -799,6 +874,11 @@ function initSelects() {
   const emisSource = getEmisSource();
   const yrs = activeYears(emisSource);
 
+  // --- preserve current selections ---
+  const prevYear = Number(state.el.yearSelect.value);
+  const prevSector = state.el.sectorSelect.value;
+
+  // --- year options (changes with source) ---
   state.el.yearSelect.innerHTML = "";
   for (const y of yrs) {
     const opt = document.createElement("option");
@@ -806,11 +886,20 @@ function initSelects() {
     opt.textContent = y;
     state.el.yearSelect.appendChild(opt);
   }
-  state.el.yearSelect.value = yrs[yrs.length - 1];
 
+  // keep year if still available; otherwise fallback to latest
+  const yearToUse = yrs.includes(prevYear) ? prevYear : yrs[yrs.length - 1];
+  state.el.yearSelect.value = yearToUse;
+
+  // --- sector options (should NOT depend on source) ---
   const defaultSector =
     state.sectorKeys.includes(DEFAULT_SECTOR) ? DEFAULT_SECTOR : (state.sectorKeys[0] ?? "");
   populateSelect(state.el.sectorSelect, state.sectorKeys, defaultSector);
+
+  // restore sector if possible
+  if (prevSector && state.sectorKeys.includes(prevSector)) {
+    state.el.sectorSelect.value = prevSector;
+  }
 }
 
 function updateDataHint() {
@@ -845,7 +934,6 @@ function wireEvents() {
     updateCharts();
 
     // Refresh grid to prior/posterior tif (and reset scaling)
-    state.gridDisplayMax = null;
     await setGridLayerForSelection();
   });
 
@@ -894,9 +982,8 @@ function wireEvents() {
   });
 
   // Grid toggle + slider
-  state.el.gridToggle.addEventListener("change", async () => {
-    if (state.el.gridToggle.checked) await setGridLayerForSelection();
-    else clearGrid();
+  state.el.gridOpacitySlider?.addEventListener("input", () => {
+    applyGridOpacity();
   });
 
   state.el.gridMaxSlider.addEventListener("input", handleGridSliderInput);
@@ -957,7 +1044,8 @@ async function main() {
     sectorSelect: $("sectorSelect"),
     unitSelect: $("unitSelect"),
     dataSourceSelect: $("dataSourceSelect"),
-    gridToggle: $("gridToggle"),
+    gridOpacitySlider: $("gridOpacitySlider"),
+    gridOpacityValue: $("gridOpacityValue"),
     gridMaxSlider: $("gridMaxSlider"),
     gridMaxValue: $("gridMaxValue"),
     selectedState: $("selectedState"),
@@ -991,8 +1079,9 @@ async function main() {
   recolorStates();
   updateCharts();
 
-  if (state.el.gridToggle.checked) await setGridLayerForSelection();
-  else clearGrid();
+  syncGridOpacityUI();
+  await setGridLayerForSelection();
+  applyGridOpacity();
 
   wireEvents();
 }
